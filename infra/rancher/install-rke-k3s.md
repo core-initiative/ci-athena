@@ -48,8 +48,11 @@ cat /var/lib/rancher/k3s/server/node-token
 ```yaml
 node-ip: <PRIVATE_IP>
 node-external-ip: <PUBLIC_IP>
-token: <TOKEN_STEP_1>
-server: https://<MASTER_IP>:6443
+```
+Also export variable for K3S_URL and K3S_TOKEN
+```
+export K3S_URL=https://<MASTER_IP>:6443
+export K3S_TOKEN=<TOKEN>
 ```
 3. Run the installation
 ```
