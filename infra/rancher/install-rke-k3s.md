@@ -44,14 +44,16 @@ rke-master    Ready    control-plane,master   8h    v1.33.5+k3s1   10.100.0.1   
 ```
 cat /var/lib/rancher/k3s/server/node-token
 ```
-2. Export some ENV variable that we need, `K3S_URL`, `K3S_TOKEN`
-```
-export K3S_URL=https://<MASTER_PRIVATE_IP>:6443
-export K3S_TOKEN=<TOKEN_FROM_STEP_1>
+2. Create config.yaml at `/etc/rancher/k3s/config.yaml`, put these value
+```yaml
+node-ip: <PRIVATE_IP>
+node-external-ip: <PUBLIC_IP>
+token: <TOKEN_STEP_1>
+server: https://<MASTER_IP>:6443
 ```
 3. Run the installation
 ```
-curl -sfL https://get.k3s.io | sh agent --node-ip <PRIVATE_IP> --node-external-ip <PUBLIC_IP>
+curl -sfL https://get.k3s.io | sh -
 ```
 4. Wait until all the process are complete.
 5. Check the node availability in master using the same  command `kubectl get node -o wide`. Now you should see
