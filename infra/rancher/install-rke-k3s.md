@@ -65,3 +65,62 @@ NAME          STATUS   ROLES                  AGE   VERSION        INTERNAL-IP  
 rke-master    Ready    control-plane,master   8h    v1.33.5+k3s1   10.100.0.1    103.82.93.82     Ubuntu 24.04.3 LTS   6.8.0-87-generic   containerd://2.1.4-k3s1
 rke-worker1   Ready    <none>                 16m   v1.33.5+k3s1   10.100.0.2    103.172.204.82   Ubuntu 24.04.3 LTS   6.8.0-87-generic   containerd://2.1.4-k3s1
 ```
+### Step By Step - Install Rancher UI
+1. Make sure you have `helm` command install, if you have not installed yet, follow this instruction
+```
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
+chmod +x get_helm.sh
+./get_helm.sh
+```
+Test the helm command with `helm list`,
+```
+root@rke-master2:/home/ubuntu# helm list
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+```
+2. Add helm repository for rancher-stable & jetstack
+```
+helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm repo list
+```
+You should see the output
+```
+root@rke-master2:/home/ubuntu# helm repo list
+NAME          	URL
+rancher-stable	https://releases.rancher.com/server-charts/stable
+jetstack      	https://charts.jetstack.io
+```
+3. Install cert-manager, current version is v1.19.1. You can adjust with your preferred version
+```
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.1/cert-manager.crds.yaml
+helm install cert-manager jetstack/cert-manager   --namespace cert-manager   --version v1.19.1   --set installCRDs=false
+```
+Wait until all pods are ready, check by running `kubectl get pod -n cert-manager`
+```
+root@rke-master2:/home/ubuntu# kubectl get pods -n cert-manager
+NAME                                       READY   STATUS    RESTARTS   AGE
+cert-manager-77b74755d9-wm8h2              1/1     Running   0          86m
+cert-manager-cainjector-65fcfd6ccf-js9w9   1/1     Running   0          86m
+cert-manager-webhook-9b4dd78-2vgx5         1/1     Running   0          86m
+```
+4. Install Rancher UI, dont forget to change the `RANCHER_DOMAIN` and `ADMIN_PASSWORD`
+```
+kubectl create namespace cattle-system
+helm install rancher rancher-stable/rancher   \
+--namespace cattle-system   \
+--set hostname=<RANCHER_DOMAIN>   \
+--set bootstrapPassword=<ADMIN_PASSWORD>
+```
+5. Wait the process until complete, then check the pods readyness by running `kubectl get pods -n cattle-system`. You should see the output, make sure all pods are `1/1 running`
+```
+root@rke-master2:/home/ubuntu# kubectl get pods -n cattle-system
+NAME                                        READY   STATUS    RESTARTS      AGE
+rancher-84bc8d56bc-9d6gz                    1/1     Running   1 (87m ago)   88m
+rancher-84bc8d56bc-g4jsd                    1/1     Running   0             88m
+rancher-84bc8d56bc-hvwv6                    1/1     Running   2 (87m ago)   88m
+rancher-webhook-65fd7d4ff-lpdkq             1/1     Running   0             86m
+system-upgrade-controller-86f54779d-8sjwr   1/1     Running   0             85m
+root@rke-master2:/home/ubuntu#
+```
+6. Go to your https://<RANCHER_DOMAIN>, login with your password.
