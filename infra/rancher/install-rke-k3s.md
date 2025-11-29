@@ -32,10 +32,20 @@ ufw route allow in on any out on cni0
 ```
 4. Trust internal interface ( flannel & and cni )
 ```
+##OPTIONS A
 ufw allow in on flannel.1
 ufw allow out on flannel.1
 ufw allow in on cni0
 ufw allow out on cni0
+
+## OPTIONS B
+# Allow Pod Network communication
+sudo ufw allow from 10.42.0.0/16 to any
+sudo ufw allow from any to 10.42.0.0/16
+
+# Allow Service Network communication
+sudo ufw allow from 10.43.0.0/16 to any
+sudo ufw allow from any to 10.43.0.0/16
 ```
 5. Allow 22,80,443 tcp for basic access ( ssh, http and https )
 ```
