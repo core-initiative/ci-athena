@@ -1,11 +1,43 @@
 ## Install RKE with k3s
 Here is the step by step to install RKE with k3s, version v1.33.5+k3s1
 ### Prerequisites / Scenario
-1. We have  node with public IP and private IP
+1. We have  node with public IP and private IP (interface wg0), we will use wg0 as flannel interface
 2. Node private ip is setup using wireguard
 3. Have a domain to be mapped as rancher ui ingress.
 4. Full internet capability
 5. Use superuser (`sudo -s`)
+6. Allow the required port through ufw
+
+### Step By Step - Networking
+1. Make sure the default ufw forward is ACCEPT, edit file `/etc/default/ufw`, find the line for
+```
+DEFAULT_FORWARD_POLICY="ACCEPT"
+```
+2. Allow communication between wg0 (node to node communication)
+```
+ufw allow in on wg0
+ufw allow out on wg0
+```
+3. Allow routing for internal communication inside k3s cluster
+```
+# Allow traffic passing through the WireGuard tunnel to other interfaces (like Pods)
+ufw route allow in on wg0 out on any
+ufw route allow in on any out on wg0
+
+# Allow traffic passing through the Flannel/CNI interfaces (Internal Pod Traffic)
+ufw route allow in on flannel.1 out on any
+ufw route allow in on any out on flannel.1
+ufw route allow in on cni0 out on any
+ufw route allow in on any out on cni0
+```
+4. Trust internal interface ( flannel & and cni )
+```
+ufw allow in on flannel.1
+ufw allow out on flannel.1
+ufw allow in on cni0
+ufw allow out on cni0
+```
+5. 
 
 ### Step By Step - Master Node
 1. Prepare the `config.yaml` for master node
@@ -13,6 +45,7 @@ Here is the step by step to install RKE with k3s, version v1.33.5+k3s1
 write-kubeconfig-mode: "0644"
 node-ip: <PRIVATE_IP>
 node-external-ip: <PUBLIC_IP>
+flannel-iface: wg0
 tls-san:
   - "<DOMAIN_NAME>"
   - "<PUBLIC_IP>"
@@ -48,6 +81,7 @@ cat /var/lib/rancher/k3s/server/node-token
 ```yaml
 node-ip: <PRIVATE_IP>
 node-external-ip: <PUBLIC_IP>
+flannel-iface: wg0
 ```
 Also export variable for K3S_URL and K3S_TOKEN
 ```
