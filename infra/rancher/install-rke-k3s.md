@@ -37,7 +37,11 @@ ufw allow out on flannel.1
 ufw allow in on cni0
 ufw allow out on cni0
 ```
-5. 
+5. Allow 22,80,443 tcp for basic access ( ssh, http and https )
+```
+ufw allow 22,80,443/tcp
+```
+6. Enable the firewall using `ufw enable`
 
 ### Step By Step - Master Node
 1. Prepare the `config.yaml` for master node
