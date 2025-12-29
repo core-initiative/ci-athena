@@ -1,0 +1,262 @@
+INSTALL ELK IGATE
+
+LIST NODES : 
+10.49.201.68	xpjigtmwclus01
+10.49.201.69	xpjigtmwclus02
+10.49.201.70	xpjigtmwclus03
+10.49.201.71	xpjigtetdcclus01
+10.49.201.72	xpjigtetdcclus02
+10.49.201.73	xpjigtetdcclus03
+10.49.201.74	xpjigtstgclus01
+10.49.201.75	xpjigtstgclus02
+10.49.201.76	xpjigtstgclus03
+10.49.201.77	xpjigtelscms01 (master node)
+10.49.201.78	xpjigtelscdt01 (data, ingest node)
+10.49.201.79	xpjigtdb01
+10.49.160.132	xpjigtwrkclus01
+10.49.160.133	xpjigtwrkclus02
+10.49.160.134	xpjigtwrkclus03
+10.49.160.135	xpjigtwrkclus04
+10.49.160.136	xpjigtwrkclus05
+10.49.160.137	xpjigtkibapp01 (kibana node)
+
+----------------------------------------------------------
+
+### MASTER NODE
+## install with rpm
+rpm -i elasticsearch-8.18.3-x86_64.rpm
+
+## elasticsearch.yml master node 
+cluster.name: igate-elk
+node.name: xpjigtelscms01
+#node.roles: [ master ]
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+network.host: 0.0.0.0
+http.port: 9200
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+xpack.security.http.ssl:
+  enabled: true
+  keystore.path: certs/http.p12
+xpack.security.transport.ssl:
+  enabled: true
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+cluster.initial_master_nodes: ["xpjigtelscms01"]
+#discovery.seed_hosts: ["10.49.201.77:9300"]
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+
+## start & enable
+systemctl daemon-reload
+systemctl enable elasticsearch
+systemctl start elasticsearch
+systemctl status elasticsearch
+
+## checking & testing
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cat/nodes?v
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cluster/health?pretty
+
+## generate token
+/usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s node
+
+## token
+eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6IkN2NU1aWmtCbklBTlo1V08yS2RDOl9PQWhPZUZXUDZjQjlzOGRjSHlfcGcifQ==
+
+----------------------------------------------------------
+### INGEST, DATA NODE
+## install with rpm
+rpm -i elasticsearch-8.18.3-x86_64.rpm
+
+## don't start & enable first. immediately join cluster with token 
+/usr/share/elasticsearch/bin/elasticsearch-reconfigure-node --enrollment-token eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6IkN2NU1aWmtCbklBTlo1V08yS2RDOl9PQWhPZUZXUDZjQjlzOGRjSHlfcGcifQ==
+
+## elasticsearch.yml data,ingest node 
+cluster.name: igate-elk
+node.name: xpjigtelscdt01 
+node.roles: [ data, ingest ]
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+network.host: 0.0.0.0
+http.port: 9200
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+xpack.security.http.ssl:
+  enabled: true
+  keystore.path: certs/http.p12
+xpack.security.transport.ssl:
+  enabled: true
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+discovery.seed_hosts: ["10.49.201.77:9300"]
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+
+## start service
+systemctl daemon-reload
+systemctl enable elasticsearch.service
+systemctl start elasticsearch
+systemctl status elasticsearch
+
+## checking & testing
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cat/nodes?v
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cluster/health?pretty
+
+----------------------------------------------------------
+### INGEST, DATA ROLE. KIBANA NODE xpjigtkibapp01
+## install with rpm
+rpm -i elasticsearch-8.18.3-x86_64.rpm
+
+## don't start & enable first. immediately join cluster with token 
+/usr/share/elasticsearch/bin/elasticsearch-reconfigure-node --enrollment-token eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6IkN2NU1aWmtCbklBTlo1V08yS2RDOl9PQWhPZUZXUDZjQjlzOGRjSHlfcGcifQ==
+
+## elasticsearch.yml data,ingest node 
+cluster.name: igate-elk
+node.name: xpjigtkibapp01
+node.roles: [ data, ingest ]
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+network.host: 0.0.0.0
+http.port: 9200
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+xpack.security.http.ssl:
+  enabled: true
+  keystore.path: certs/http.p12
+xpack.security.transport.ssl:
+  enabled: true
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+discovery.seed_hosts: ["10.49.201.77:9300"]
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+
+## start service
+systemctl daemon-reload
+systemctl enable elasticsearch.service
+systemctl start elasticsearch
+systemctl status elasticsearch
+
+## checking & testing
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cat/nodes?v
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cluster/health?pretty
+
+----------------------------------------------------------
+## Change path.data in data,ingest node
+## data, ingest node
+systemctl stop elasticsearch
+cp -a /var/lib/elasticsearch /data01/elasticsearch
+cp -a /data01/elasticsearch /data01/elasticsearch_backup
+rm -rf /data01/elasticsearch/*
+vi /etc/elasticsearch/elasticsearch.yml
+  path.data: /data01/elasticsearch
+  cluster.name: igate-elk
+  discovery.seed_hosts: ["10.49.201.77:9300"]
+chown -R elasticsearch:elasticsearch /data01/elasticsearch
+sudo systemctl start elasticsearch
+
+----------------------------------------------------------
+## Change path.data in master node
+## master node
+systemctl stop elasticsearch
+cp -a /var/lib/elasticsearch/* /data01/elasticsearch/
+chown -R elasticsearch:elasticsearch /data01/elasticsearch
+vi /etc/elasticsearch/elasticsearch.yml
+  path.data: /data01/elasticsearch
+  node.roles: [ master, data, remote_cluster_client ]
+/usr/share/elasticsearch/bin/elasticsearch-node repurpose
+systemctl start elasticsearch
+
+## checking & testing
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cat/nodes?v
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cluster/health?pretty
+
+----------------------------------------------------------
+## Change role node 1 as node.roles = master
+vi /etc/elasticsearch/elasticsearch.yml
+#Uncomment this line
+#node.roles: [ master ]
+#to
+node.roles: [ master ]
+
+## Running this command ro reconfigure node
+/usr/share/elasticsearch/bin/elasticsearch-node repurpose
+systemctl start elasticsearch
+systemctl status elasticsearch
+
+----------------------------------------------------------
+
+# Install in kibana node
+curl -k -O https://artifacts.elastic.co/downloads/kibana/kibana-8.13.3-x86_64.rpm
+rpm -i kibana-8.13.3-x86_64.rpm
+systemctl enable kibana
+systemctl stop kibana
+
+# Generate token in master node
+/usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+
+# Token output
+eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6IkNVZXpmNWtCS2JGejYybVpSZmZYOjB4THc4bWVWaHVXVWppN05jZndtU0EifQ==
+
+
+# Join kibana node with token generated (kibana node)
+/usr/share/kibana/bin/kibana-setup --enrollment-token eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6IkNVZXpmNWtCS2JGejYybVpSZmZYOjB4THc4bWVWaHVXVWppN05jZndtU0EifQ==
+
+# Output after joined to elasticsearch cluster
+Native global console methods have been overridden in production environment.
+
+✔ Kibana configured successfully.
+
+To start Kibana run:
+  bin/kibana
+
+# Start kibana service and check logs
+systemctl start kibana
+journalctl -u kibana -f
+
+# token elasticsearch
+eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6Ik1rZktvNWtCS2JGejYybVpVX2RqOjhiZVVmREVLbjZHSEpCYkYzNW9DUEEifQ==
+
+## don't start & enable first. immediately join cluster with token 
+/usr/share/elasticsearch/bin/elasticsearch-reconfigure-node --enrollment-token eyJ2ZXIiOiI4LjE0LjAiLCJhZHIiOlsiMTAuNDkuMjAxLjc3OjkyMDAiXSwiZmdyIjoiMTlmMjUzZWQ0OTA2YzA2MmUzZWI5NWU4NTk1YmEyNTM2YTk3MGI1ZjY3YTBiNDlmYjEyMDk2MjY4MjZkYmQzZSIsImtleSI6Ik1rZktvNWtCS2JGejYybVpVX2RqOjhiZVVmREVLbjZHSEpCYkYzNW9DUEEifQ==
+
+# Join as elasticsearch node
+## elasticsearch.yml data,ingest node 
+cluster.name: igate-elk
+node.name: xpjigtkibapp01
+node.roles: [ data, ingest ]
+path.data: /var/lib/elasticsearch
+#path.data: /data01/elasticsearch
+path.logs: /var/log/elasticsearch
+network.host: 0.0.0.0
+http.port: 9200
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+xpack.security.http.ssl:
+  enabled: true
+  keystore.path: certs/http.p12
+xpack.security.transport.ssl:
+  enabled: true
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+discovery.seed_hosts: ["10.49.201.77:9300", "10.49.201.78:9300"]
+http.host: 0.0.0.0
+transport.host: 0.0.0.0
+
+## move path.data
+mv /var/lib/elasticsearch/ /data01
+
+## start service
+systemctl daemon-reload
+systemctl enable elasticsearch.service
+systemctl start elasticsearch
+systemctl status elasticsearch
+
+## checking & testing
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cat/nodes?v
+curl -k -u elastic:"ZQ5xjL-HqOFCnZLB8Uid" https://10.49.201.77:9200/_cluster/health?pretty
