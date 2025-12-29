@@ -1,0 +1,95 @@
+INSTALL RANCHER IGATE
+
+LIST NODES:
+10.49.71.132	xptigtmwclus01
+10.49.71.133	xptigtmwclus02
+10.49.71.134	xptigtmwclus03
+10.49.71.135	xptigtetdcclus01
+10.49.71.136	xptigtetdcclus02
+10.49.71.137	xptigtetdcclus03
+10.49.71.138	xptigtstrclus01
+10.49.71.139	xptigtstrclus02
+10.49.71.140	xptigtstrclus03
+10.49.71.141	xptigtelscms01 (master node)
+10.49.71.142	xptigtelscdt01 (data, ingest node)
+10.49.71.143	xptigtdb01
+10.49.32.196	xptigtwrkclus01
+10.49.32.197	xptigtwrkclus02
+10.49.32.198	xptigtwrkclus03
+10.49.32.199	xptigtwrkclus04
+10.49.32.200	xptigtwrkclus05
+10.49.32.201	xptigtkibapp01 (kibana node)
+-------------------------------------------------------
+
+# master node
+mkdir /etc/systemd/system/rke2-server.service.d
+touch /etc/systemd/system/rke2-server.service.d/proxy.conf
+
+# /etc/systemd/system/rke2-server.service.d/proxy.conf
+[Service]
+Environment="HTTP_PROXY=http://10.14.46.197:3128"
+Environment="HTTPS_PROXY=http://10.14.46.197:3128"
+Environment="NO_PROXY=localhost,127.0.0.1,0.0.0.0,10.42.0.0/16,10.43.0.0/16,.svc,.cluster.local"
+
+# worker node 
+mkdir /etc/systemd/system/rke2-agent.service.d
+touch /etc/systemd/system/rke2-agent.service.d/proxy.conf
+
+# install rke2
+curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=server sh -
+
+echo "📁 [Node 1] Creating configuration directory..."
+mkdir -p /etc/rancher/rke2
+
+echo "📝 [Node 1] Writing config.yaml..."
+cat <<EOF > /etc/rancher/rke2/config.yaml
+tls-san:
+  - 10.49.71.135
+  - xptigtetdcclus01
+  - lb.igate-rke2.cluster
+EOF
+
+echo "🔧 [Node 1] Enabling and starting rke2-server.service..."
+systemctl enable rke2-sever.service
+systemctl start rke2-server.service
+
+echo "🔐 [Node 1] Setting up kubeconfig for kubectl..."
+mkdir -p ~/.kube
+ln -sf /etc/rancher/rke2/rke2.yaml ~/.kube/config
+chmod 600 ~/.kube/config
+
+echo "✅ [Node 1] RKE2 setup complete!"
+echo "📌 Copy the node-token from this node to others:"
+echo "    cat /var/lib/rancher/rke2/server/node-token"
+
+# install helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod +x get_helm.sh
+./get_helm.sh
+
+# install cert-manager
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+kubectl create namespace cattle-system
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.crds.yaml
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+# install rancher
+helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname={ipaddress-masternode}.sslip.io --set replicas=1 --set bootstrapPassword={yourpassword}
+
+# check 
+kubectl get pods --all-namespaces (pastikan semua pod running)
+kubectl get pods -A 
+
+# get token
+cat /var/lib/rancher/rke2/server/node-token
+{yourtoken}
+
+# JOIN NODE WORKER
+curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=agent INSTALL_RKE2_URL=https://{ipaddress-masternode}:9345 INSTALL_RKE2_TOKEN={yourtoken} sh -
+
+# INSTALL KADALU AJ FILEM RKE2
+kubectl kadalu storage-add storage-pool-0 --type Replica3 \
+    --device {nodestorage1}:/dev/{sdX} \
+    --device {nodestorage2}:/dev/{sdX} \
+    --device {nodestorage3}:/dev/{sdX}
