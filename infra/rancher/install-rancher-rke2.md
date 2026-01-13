@@ -25,7 +25,7 @@ Run this script on **all nodes** (Master and Worker). You need to adjust the `PR
 #!/bin/bash
 # Host Preparation Script
 
-PROXY_URL="http://10.14.46.197:3128"
+PROXY_URL="http://<ip>:<port>"
 # Internal CIDRs must be excluded from proxy
 NO_PROXY_LIST="127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,cattle-system.svc,.svc,.cluster.local"
 
@@ -58,16 +58,16 @@ echo "✅ Preparation complete. Please log out and back in."
 RKE2 services run as systemd units. They require a dedicated proxy configuration file to successfully pull container images in air-gapped environments.
 
 ## 1. Configure RKE2 Systemd Proxy
-Run this on **all nodes** before installing the RKE2 binary.
+Run this on **all nodes** before installing the RKE2 binary. Use `rke2-server` for master node or `rke2-agent` for worker node
 
 ```bash
 #!/bin/bash
-PROXY_URL="[http://10.14.46.197:3128](http://10.14.46.197:3128)"
+PROXY_URL="http://<proxy_ip>:<port>"
 NO_PROXY_LIST="localhost,127.0.0.1,0.0.0.0,10.42.0.0/16,10.43.0.0/16,.svc,.cluster.local"
-
-for SERVICE in rke2-server rke2-agent; do
-    mkdir -p /etc/systemd/system/${SERVICE}.service.d
-    cat <<EOF > /etc/systemd/system/${SERVICE}.service.d/proxy.conf
+SERVICE="rke2-server"
+# SERVICE="rke2-agent"
+mkdir -p /etc/systemd/system/${SERVICE}.service.d
+cat <<EOF > /etc/systemd/system/${SERVICE}.service.d/proxy.conf
 [Service]
 Environment="HTTP_PROXY=$PROXY_URL"
 Environment="HTTPS_PROXY=$PROXY_URL"
@@ -78,11 +78,11 @@ done
 systemctl daemon-reload
 ```
 ## 2. Initialize First Master
-Run on Master Node 1. Note the tls-san includes the Load Balancer IP.
+Run on Master Node 1. Note the tls-san includes the Load Balancer IP. If you plan to have multi master node, it's best to use a load balancer in front of the master node.
 
 ```bash
 #!/bin/bash
-LB_IP="10.49.71.135"
+LB_IP="<IP_ADDRESS>"
 
 curl -sfL [https://get.rke2.io](https://get.rke2.io) | INSTALL_RKE2_TYPE=server sh -
 
@@ -96,12 +96,14 @@ EOF
 systemctl enable rke2-server.service --now
 ```
 ## 3. Join Additional Masters
-Run on Master 2 and 3 using the token from Node 1.
+Run on another master node using  the token from Node 1. Use this command to get the token from Master Node 1
+`cat /var/lib/rancher/rke2/server/node-token`
+
 
 ```bash
 #!/bin/bash
-LB_IP="10.49.71.135"
-TOKEN="PASTE_TOKEN_HERE"
+LB_IP="<IP_ADDRESS>"
+TOKEN="<PASTE_TOKEN_HERE>"
 
 curl -sfL [https://get.rke2.io](https://get.rke2.io) | INSTALL_RKE2_TYPE=server sh -
 
