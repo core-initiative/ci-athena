@@ -204,7 +204,7 @@ spec:
 2. Apply config, kubectl apply -f ingress-headers.yaml
 3. Make user the job is running, check it with `journalctl -u rke2-server -f`
 4. If error failed to sync, or requeuing then delete the stuck jobs.
-5. Check the stuck job, apabila pending / completed hapus aja
+5. Check the stuck job, if the status is pending / completed just delete it
 ```bash
 kubectl get job helm-install-rke2-ingress-nginx -n kube-system
 kubectl delete job helm-install-rke2-ingress-nginx -n kube-system
